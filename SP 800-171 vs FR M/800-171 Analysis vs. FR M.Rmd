@@ -1,0 +1,135 @@
+---
+title: "800-171 Analysis with FR M"
+output: 
+  pdf_document: 
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(readr)
+library(tidyverse)
+library(ggplot2)
+library(igraph)
+library(dplyr)
+```     
+
+    
+#800-171 and FedRAMP Moderate Comparison  
+  
+```{r}
+`SP_800_53_Analysis_for_SP_800_171` <- read_excel("~/Documents/GitHub/FedRAMP_SP-800-171_Analysis/SP 800-53 Analysis for SP 800-171.xlsx")
+FedRAMP_Master <- read_excel("~/Documents/GitHub/FedRAMP_Baseline_Master/FedRAMP LMH Master.xlsx")
+
+head(SP_800_53_Analysis_for_SP_800_171)
+head(FedRAMP_Master)
+```
+
+For this analysis, we would want to find the percentage of Security Controls that are within the SP-800-171 and analyze the percentage difference between the two (FedRAMP Moderate and SP-800-171).       
+   
+```{r}
+FedRAMP_Moderate <- FedRAMP_Master %>%
+  filter(`FR Moderate` == "Y")
+
+head(FedRAMP_Moderate)
+names(FedRAMP_Moderate)
+```
+
+      
+**Number of Security Control Families in FR M and the SP 800-171.**
+```{r}
+Count_SCFamilyFRM <- FedRAMP_Moderate %>%
+  mutate(total_SCFamilyFRM = length(unique(`Control Family ID`))) %>%
+  select(`SC_Family` = `Control Family ID`, 
+         total_SCFamilyFRM) %>% 
+  distinct()
+
+Count_SCFamilyFRM
+
+Count_SCFamily171 <- SP_800_171_Analysis %>%
+  mutate(total_SCFamily171 = length(unique(`800-53 Family`))) %>%
+  select(`800-53 Family`, total_SCFamily171) %>%
+  distinct() %>%
+  rename(`SC_Family` = `800-53 Family`)
+
+Count_SCFamily171
+
+Percentage_SCFamilies <- Count_SCFamilyFRM %>%
+  left_join(Count_SCFamily171) %>% 
+  mutate(percentage_SCFamilies = total_SCFamily171/total_SCFamilyFRM) %>%
+  select(-`SC_Family`) %>%
+  distinct()
+
+Percentage_SCFamilies
+```
+Both, FedRAMP Moderate and SP 800-171 have the same number of Security Control families. This means that SP 800-171 uses the total amount (100%) of possible Security Control family possible.     
+
+  
+**Number of Security Control in FR M and the SP 800-171.**
+```{r}
+Count_SCFRM <- FedRAMP_Moderate %>%
+  mutate(total_SCFRM = length(unique(Controls))) %>%
+  select(Controls, total_SCFRM) %>%
+  distinct()
+
+Count_SCFRM
+
+Count_SC171 <- SP_800_171_Analysis %>%
+  mutate(total_SC171 = length(unique(`NIST SP 800-53`))) %>%
+  select(`Controls` = `NIST SP 800-53`, 
+         total_SC171) %>% 
+  distinct()
+
+Count_SC171
+
+Percentage_SC <- Count_SCFRM %>%
+  left_join(Count_SC171) %>% 
+  mutate(percentage_SC = total_SC171/total_SCFRM) %>%
+  select(-`Controls`) %>%
+  distinct() %>%
+  drop_na()
+
+Percentage_SC
+```    
+FedRAMP Moderate has a total of 325 Security Controls, while SP 800-171 has 127 of those 415 Security Controls. This means that 39.1% of the Security Controls are in SP 800-171.     
+   
+    
+**Number of Security Control withing each family in SP 800-53 and the SP 800-171.**
+```{r}
+Count_SCFamily_SCFRM <- FedRAMP_Moderate %>%
+  group_by(`Control Family ID`) %>%
+  mutate(total_SCFamily_SCFRM = length(`Control Family ID`)) %>%
+  select(SC_Family = `Control Family ID`, total_SCFamily_SCFRM) %>%
+  distinct()
+
+Count_SCFamily_SCFRM
+
+Count_SCFamily_SC171 <- SP_800_171_Analysis %>%
+  group_by(`SR Family`, `800-53 Family`) %>%
+  mutate(total_SCFamily_SC171 = length(unique(`NIST SP 800-53`))) %>%
+  ungroup() %>%
+  group_by(`SR Family`) %>%
+  mutate(total_SRFamily_SC171 = length(unique(`NIST SP 800-53`))) %>%
+  select(`800-53 Family`, total_SRFamily_SC171, total_SCFamily_SC171) %>%
+  distinct() %>%
+  rename(`SC_Family` = `800-53 Family`)
+
+Count_SCFamily_SC171
+
+Percentage_SCFamily_SC <- Count_SCFamily_SCFRM %>%
+  left_join(Count_SCFamily_SC171, by = "SC_Family") %>% 
+  mutate(percentage_SCFamily = total_SCFamily_SC171/total_SCFamily_SCFRM) %>% 
+  select(`SR Family`, SC_Family, total_SCFamily_SCFRM, total_SCFamily_SC171, percentage_SCFamily)
+
+Percentage_SCFamily_SC 
+```
+    
+   
+##Exporting Data 
+    
+```{r}
+write_csv(`Percentage_SCFamilies`, "Percentage_SCFamilies.csv")
+write_csv(`Percentage_SC`, "Percentage_SC.csv")
+write_csv(`Percentage_SCFamily_SC`, "Percentage_SCFamily_SC.csv")
+``` 
